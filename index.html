@@ -1,182 +1,31 @@
 <!DOCTYPE html>
-<html lang="id" class="">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OMJONLINK</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <title>redirecting</title>
   <script>
-    if (localStorage.getItem('theme') === 'dark' || 
-        (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    window.onload = function() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("to")) {
+        let target = decodeURIComponent(params.get("to")).trim();
+
+        if (!/^https?:\/\//i.test(target)) {
+          target = "http://" + target;
+        }
+
+        try {
+          new URL(target);
+          window.location.href = target;
+          return;
+        } catch (e) {
+        }
+      }
+
+      document.body.style.background = "white";
+      document.body.innerHTML = `<pre style="color:#000;font-family:monospace;">${JSON.stringify({error:"can't access this api"})}</pre>`;
+    };
   </script>
-  <style>
-    #toast-container { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.75rem; }
-    .toast { padding: 1rem 1.5rem; border-radius: 0.5rem; color: white; font-weight: 600; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); transition: all 0.5s ease-in-out; opacity: 0; transform: translateX(100%); }
-    .toast.show { opacity: 1; transform: translateX(0); }
-    .toast-success { background-color: #22c55e; }
-    .toast-error { background-color: #ef4444; }
-    .modal-overlay { transition: opacity 0.3s ease-in-out; }
-    .modal-box { transition: all 0.3s ease-in-out; }
-    .hidden-scale { transform: scale(0.95); opacity: 0; }
-    .visible-scale { transform: scale(1); opacity: 1; }
-    #link-list-container.loading { opacity: 0.5; pointer-events: none; }
-  </style>
 </head>
-<body class="bg-blue-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 transition-colors duration-300">
-
-  <!-- Navbar -->
-  <nav class="bg-blue-500 dark:bg-gray-800 shadow-lg sticky top-0 z-40">
-    <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-      <a href="?" class="text-2xl font-bold flex items-center text-white dark:text-green-400">
-        <i class="fas fa-link mr-3"></i>OMJONLINK
-      </a>
-      <button id="theme-toggle" type="button" class="text-white dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700 focus:outline-none rounded-lg text-sm p-2.5">
-        <i id="theme-toggle-dark-icon" class="fas fa-moon hidden"></i>
-        <i id="theme-toggle-light-icon" class="fas fa-sun hidden"></i>
-      </button>
-    </div>
-  </nav>
-
-  <!-- Main -->
-  <main class="container mx-auto p-4 md:p-8">
-    <!-- Form tambah -->
-    <div class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl shadow-md mb-8">
-      <h1 class="text-2xl font-bold mb-4 text-gray-800 dark:text-green-400">Buat Redirect Link Baru</h1>
-      <form id="add-form">
-        <div class="flex flex-col md:flex-row gap-4">
-          <input type="url" id="url-input" placeholder="https://contoh-url.com" required
-            class="flex-grow p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-400 dark:focus:ring-green-400 focus:outline-none transition">
-          <button type="submit" class="bg-blue-500 hover:bg-blue-600 dark:bg-green-500 dark:hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition duration-300 flex items-center justify-center">
-            <i class="fas fa-plus-circle mr-2"></i>Buat Link
-          </button>
-        </div>
-      </form>
-    </div>
-
-    <!-- List link -->
-    <div class="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl shadow-md">
-      <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-        <h2 class="text-xl font-bold text-gray-800 dark:text-green-400">Daftar Link Redirect</h2>
-        <div class="relative w-full md:w-1/3">
-          <input type="text" id="search-input" placeholder="Cari domain..."
-            class="w-full p-2 pl-10 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-400 dark:focus:ring-green-400 focus:outline-none transition">
-          <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-        </div>
-      </div>
-      <div id="link-list-container" class="space-y-4 max-h-[70vh] overflow-y-auto pr-2 transition-opacity duration-300"></div>
-    </div>
-  </main>
-
-  <div id="toast-container"></div>
-
-<script>
-const STORAGE_KEY = "redirect_links";
-
-// 🚀 cek redirect otomatis
-const params = new URLSearchParams(window.location.search);
-if (params.has("to")) {
-  const target = decodeURIComponent(params.get("to"));
-  window.location.href = target;
-}
-
-// ambil link
-function getLinks() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); }
-function saveLinks(links) { localStorage.setItem(STORAGE_KEY, JSON.stringify(links)); }
-function showToast(msg, type='success') {
-  const id = 'toast-' + Date.now();
-  const div = $(`<div id="${id}" class="toast ${type==='success'?'toast-success':'toast-error'}">${msg}</div>`);
-  $('#toast-container').append(div);
-  setTimeout(()=>div.addClass('show'),100);
-  setTimeout(()=>{div.removeClass('show'); setTimeout(()=>div.remove(),500);},3000);
-}
-
-function renderLinks(filter="") {
-  const list = $("#link-list-container");
-  list.empty();
-  let links = getLinks();
-  if (filter) links = links.filter(l => l.toLowerCase().includes(filter.toLowerCase()));
-  if (links.length===0) {
-    list.html('<p class="text-gray-500 dark:text-gray-400 text-center py-4">Tidak ada link.</p>');
-    return;
-  }
-  links.forEach(link=>{
-    const encoded = encodeURIComponent(link);
-    const redirectUrl = window.location.origin+window.location.pathname+"?to="+encoded;
-    list.append(`
-      <div class="link-item flex flex-col md:flex-row items-center justify-between p-4 border dark:border-gray-700 rounded-lg hover:bg-blue-50/50 dark:hover:bg-gray-700/50 transition duration-300">
-        <div class="w-full md:w-auto flex-grow mb-4 md:mb-0 md:mr-4 overflow-hidden" data-url="${link}">
-          <a href="${redirectUrl}" target="_blank" class="font-semibold text-blue-600 dark:text-blue-400 hover:underline break-all text-sm">${redirectUrl}</a>
-          <p class="text-sm text-gray-500 dark:text-gray-400 truncate"><i class="fas fa-long-arrow-alt-right mr-2"></i>${link}</p>
-        </div>
-        <div class="flex-shrink-0 flex gap-2">
-          <button class="copy-btn bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-700 dark:text-gray-200 py-2 px-3 rounded-lg" data-copy="${redirectUrl}" title="Copy Link"><i class="fas fa-copy"></i></button>
-          <button class="del-btn bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-3 rounded-lg" data-url="${link}" title="Hapus"><i class="fas fa-trash-alt"></i></button>
-        </div>
-      </div>
-    `);
-  });
-}
-
-// tambah link
-$("#add-form").on("submit", e=>{
-  e.preventDefault();
-  let url=$("#url-input").val().trim();
-  if(!url.startsWith("http")) url="http://"+url;
-  let links=getLinks();
-  if(!links.includes(url)) { links.push(url); saveLinks(links); renderLinks(); showToast("Link ditambahkan!"); }
-  else showToast("Link sudah ada","error");
-  $("#url-input").val("");
-});
-
-// hapus
-$("#link-list-container").on("click",".del-btn",function(){
-  const url=$(this).data("url");
-  let links=getLinks().filter(l=>l!==url);
-  saveLinks(links); renderLinks(); showToast("Link dihapus");
-});
-
-// copy
-$("#link-list-container").on("click",".copy-btn",function(){
-  const url=$(this).data("copy");
-  navigator.clipboard.writeText(url);
-  const icon=$(this).find("i");
-  icon.removeClass("fa-copy").addClass("fa-check text-green-500");
-  setTimeout(()=>icon.removeClass("fa-check text-green-500").addClass("fa-copy"),2000);
-  showToast("Link dicopy!");
-});
-
-// search
-$("#search-input").on("keyup", function(){ renderLinks($(this).val()); });
-
-// toggle tema
-function toggleIcons(){
-  if(localStorage.getItem('theme')==='dark'){
-    $("#theme-toggle-light-icon").removeClass("hidden");
-    $("#theme-toggle-dark-icon").addClass("hidden");
-  } else {
-    $("#theme-toggle-light-icon").addClass("hidden");
-    $("#theme-toggle-dark-icon").removeClass("hidden");
-  }
-}
-toggleIcons();
-$("#theme-toggle").on("click",()=>{
-  if(localStorage.getItem('theme')==='dark'){
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme','light');
-  } else {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme','dark');
-  }
-  toggleIcons();
-});
-
-renderLinks();
-</script>
+<body>
 </body>
 </html>
