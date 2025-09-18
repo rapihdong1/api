@@ -38,34 +38,3 @@
   </script>
 </body>
 </html>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8">
-  <title>netlify.app</title>
-  <script>
-    window.onload = function() {
-      const params = new URLSearchParams(window.location.search);
-      if (params.has("to")) {
-        let target = decodeURIComponent(params.get("to")).trim();
-
-        if (!/^https?:\/\//i.test(target)) {
-          target = "http://" + target;
-        }
-
-        try {
-          new URL(target);
-          window.location.href = target;
-          return;
-        } catch (e) {
-        }
-      }
-
-      document.body.style.background = "white";
-      document.body.innerHTML = `<pre style="color:#000;font-family:monospace;">${JSON.stringify({error:"can't access this api"})}</pre>`;
-    };
-  </script>
-</head>
-<body>
-</body>
-</html>
